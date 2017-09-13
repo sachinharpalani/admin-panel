@@ -7,7 +7,8 @@
             [markdown.core :refer [md->html]]
             [ajax.core :refer [GET POST]]
             [admin-panel.ajax :refer [load-interceptors!]]
-            [admin-panel.events])
+            [admin-panel.events]
+            [soda-ash.core :as sa])
   (:import goog.History))
 
 (defn nav-link [uri title page collapsed?]
@@ -36,12 +37,56 @@
     [:div.col-md-12
      [:img {:src (str js/context "/img/warning_clojure.png")}]]]])
 
+
+(defn on-submit [in]
+  (js/alert (js->clj in)))
+
+(defn get-prop-value [event data]
+  (-> data
+      (js->clj :keywordize-keys true)
+      :value))
+
+(defn get-file-object [data]
+  (aget (.-files (.-target data)) 0))
+
+
 (defn home-page []
-  [:div.container
-   (when-let [docs @(rf/subscribe [:docs])]
-     [:div.row>div.col-sm-12
-      [:div {:dangerouslySetInnerHTML
-             {:__html (md->html docs)}}]])])
+  (let [state (r/atom {})
+        add-prop (fn [key prop-value] (swap! state assoc key prop-value))
+        add-img (fn [file] (swap! state assoc :image file))
+        submit-props (fn [e] (js/alert @state))]
+    (fn [props]
+      [:div.container
+       [sa/Form {:onSubmit #(submit-props %)}
+        [sa/FormGroup {:widths "equal"}
+         [sa/FormSelect {:label "Select a book :"
+                         :placeholder "Books"
+                         :options [{:text "HP1" :value "HP1"}
+                                   {:text "HP2" :value "HP2"}]
+                         :on-change #(add-prop :book (get-prop-value %1 %2))}]]
+        [sa/FormInput {:label "Name :"
+                       :placeholder "Please enter name of the stage"
+                       :on-change #(add-prop :name (get-prop-value %1 %2))}]
+        [sa/FormInput {:label "Description :"
+                       :placeholder "Please enter description of the stage"
+                       :on-change #(add-prop :desc (get-prop-value %1 %2))}]
+        [sa/FormInput {:label "Outcome :"
+                       :placeholder "Please enter outcome of the stage"
+                       :on-change #(add-prop :outcome (get-prop-value %1 %2))}]
+        [sa/Header {:size "small"} "Image"]
+        [:input
+         {:type "file"
+          :accept "image/*"
+          :label "Stage Image"
+          :id "stage-image"
+          :defaultValue ""
+          :onChange #(add-img (aget (.-files (.-target %)) 0))}]
+        [sa/Divider {:hidden true}]
+        [sa/FormGroup {:inline true}
+         [sa/FormButton {:content "Submit"
+                         :positive true}]
+         [sa/FormButton {:content "Reset"
+                         :negative true}]]]])))
 
 (def pages
   {:home #'home-page
